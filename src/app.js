@@ -1,52 +1,38 @@
 import { getToken, getCoffeeShops } from './api.js';
 import { calculateDistance } from './utils/distance.js';
 
+const TOP_RESULTS = 3;
+const DECIMAL_PLACES = 4;
+
 /**
- * Find top 3 nearest coffee shops based on user's position
- *
- * @param {Object} position - User position
- * @param {number} position.x - User x coordinate
- * @param {number} position.y - User y coordinate
- * @returns {Promise<Array>} The list of nearest shops
+ * Convert string coordinates to numbers - console input is always strings, but we want to work with numbers for distance calculation
+ * @param {object} pos - position with x, y as strings
+ * @returns {object} position with x, y as numbers
+ */
+const parsePosition = ({ x, y }) => ({ x: Number(x), y: Number(y) });
+
+/**
+ * Find and display the nearest coffee shops to user position
+ * @param {object} position - user position with x, y coordinates
+ * @returns {Promise<Array>} array of nearest shops with name and distance
  */
 export async function getNearestShops(position) {
-  // Convert user coordinates from string to number
-  const userPosition = {
-    x: parseFloat(position.x),
-    y: parseFloat(position.y)
-  };
+  const userPosition = parsePosition(position);
 
-  // Get authentication token
   const token = await getToken();
-
-  // Get coffee shops list
   const shops = await getCoffeeShops(token);
 
-  // Calculate distance for each shop
-  const shopsWithDistance = shops.map(shop => {
-    // API returns coordinates as strings, convert to numbers
-    const shopPosition = {
-      x: parseFloat(shop.x),
-      y: parseFloat(shop.y)
-    };
-
-    const distance = calculateDistance(userPosition, shopPosition);
-
-    return {
+  // Calculate distance for each shop, sort by closest, take top 3
+  const nearest = shops
+    .map(shop => ({
       name: shop.name,
-      distance: distance
-    };
-  });
+      distance: calculateDistance(userPosition, parsePosition(shop))
+    }))
+    .sort((a, b) => a.distance - b.distance)
+    .slice(0, TOP_RESULTS);
 
-  // Sort by distance (closest first)
-  const sorted = shopsWithDistance.sort((a, b) => a.distance - b.distance);
-
-  // Take top 3
-  const nearest = sorted.slice(0, 3);
-
-  // Print results in required format
   nearest.forEach(shop => {
-    console.log(`${shop.name}, ${shop.distance.toFixed(4)}`);
+    console.log(`${shop.name}, ${shop.distance.toFixed(DECIMAL_PLACES)}`);
   });
 
   return nearest;
